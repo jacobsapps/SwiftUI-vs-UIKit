@@ -18,63 +18,67 @@ struct FeedRootView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
+            List {
+                ForEach(Array(viewModel.visibleItems.enumerated()), id: \.element.id) { index, item in
+                    FeedCellView(
+                        item: item,
+                        assetStore: assetStore,
+                        onStickerUpdated: { itemID, stickerID, centerUnit, scale, rotation in
+                            viewModel.updateSticker(
+                                itemID: itemID,
+                                stickerID: stickerID,
+                                centerUnit: centerUnit,
+                                scale: scale,
+                                rotation: rotation
+                            )
+                        },
+                        onStickerDeleted: { itemID, stickerID in
+                            viewModel.deleteSticker(itemID: itemID, stickerID: stickerID)
+                        },
+                        onStickerGestureBegan: {
+                            activeStickerGestures += 1
+                        },
+                        onStickerGestureEnded: {
+                            activeStickerGestures = max(activeStickerGestures - 1, 0)
+                        }
+                    )
+                    .frame(height: item.height)
+                    .background(VisibleItemReporter(itemID: item.id))
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(
+                        top: 0,
+                        leading: FeedSpec.Layout.contentInsets.left,
+                        bottom: 0,
+                        trailing: FeedSpec.Layout.contentInsets.right
+                    ))
+                    .listRowBackground(Color.clear)
+                    .onAppear {
+                        viewModel.loadNextPageIfNeeded(currentIndex: index)
+                    }
+                }
+            }
+            .listStyle(.plain)
+            .listRowSpacing(FeedSpec.Layout.interItemSpacing)
+            .scrollContentBackground(.hidden)
+            .background(
                 LinearGradient(
                     colors: [Color(FeedSpec.Background.topColor), Color(FeedSpec.Background.bottomColor)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
                 .ignoresSafeArea()
-
-                GeometryReader { proxy in
-                    let cellWidth = max(0, proxy.size.width - FeedSpec.Layout.contentInsets.left - FeedSpec.Layout.contentInsets.right)
-
-                    ScrollView {
-                        LazyVStack(spacing: FeedSpec.Layout.interItemSpacing) {
-                            ForEach(Array(viewModel.visibleItems.enumerated()), id: \.element.id) { index, item in
-                                FeedCellView(
-                                    item: item,
-                                    assetStore: assetStore,
-                                    cellWidth: cellWidth,
-                                    cellHeight: item.height,
-                                    onStickerUpdated: { itemID, stickerID, centerUnit, scale, rotation in
-                                        viewModel.updateSticker(
-                                            itemID: itemID,
-                                            stickerID: stickerID,
-                                            centerUnit: centerUnit,
-                                            scale: scale,
-                                            rotation: rotation
-                                        )
-                                    },
-                                    onStickerDeleted: { itemID, stickerID in
-                                        viewModel.deleteSticker(itemID: itemID, stickerID: stickerID)
-                                    },
-                                    onStickerGestureBegan: {
-                                        activeStickerGestures += 1
-                                    },
-                                    onStickerGestureEnded: {
-                                        activeStickerGestures = max(activeStickerGestures - 1, 0)
-                                    }
-                                )
-                                .frame(width: cellWidth, height: item.height)
-                                .background(VisibleItemReporter(itemID: item.id))
-                                .onAppear {
-                                    viewModel.loadNextPageIfNeeded(currentIndex: index)
-                                }
-                            }
-                        }
-                        .padding(.top, FeedSpec.Layout.contentInsets.top)
-                        .padding(.bottom, FeedSpec.Layout.contentInsets.bottom)
-                        .padding(.leading, FeedSpec.Layout.contentInsets.left)
-                        .padding(.trailing, FeedSpec.Layout.contentInsets.right)
-                    }
-                    .coordinateSpace(name: "feedScroll")
-                    .scrollIndicators(.visible)
-                    .scrollDisabled(activeStickerGestures > 0)
-                    .onPreferenceChange(VisibleItemPreferenceKey.self) { values in
-                        updateTopStats(from: values)
-                    }
-                }
+            )
+            .coordinateSpace(name: "feedScroll")
+            .scrollIndicators(.visible)
+            .scrollDisabled(activeStickerGestures > 0)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                Color.clear.frame(height: FeedSpec.Layout.contentInsets.top)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear.frame(height: FeedSpec.Layout.contentInsets.bottom)
+            }
+            .onPreferenceChange(VisibleItemPreferenceKey.self) { values in
+                updateTopStats(from: values)
             }
             .overlay(alignment: .top) {
                 NavigationBarGradientView()

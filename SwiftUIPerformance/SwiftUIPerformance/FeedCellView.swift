@@ -1,11 +1,10 @@
 import SwiftUI
+import UIKit
 import PerformanceShared
 
 struct FeedCellView: View {
     let item: FeedItem
     let assetStore: AssetStore
-    let cellWidth: CGFloat
-    let cellHeight: CGFloat
     let onStickerUpdated: (Int, Int, CGPoint, CGFloat, CGFloat) -> Void
     let onStickerDeleted: (Int, Int) -> Void
     let onStickerGestureBegan: () -> Void
@@ -14,9 +13,11 @@ struct FeedCellView: View {
     @State private var isVisible = false
     @State private var isDraggingSticker = false
     @State private var isInDeleteZone = false
+    @State private var measuredSize: CGSize = .zero
 
     var body: some View {
-        let size = CGSize(width: cellWidth, height: cellHeight)
+        let width = measuredSize.width > 0 ? measuredSize.width : fallbackWidth
+        let size = CGSize(width: width, height: item.height)
         let safeRect = stickerSafeRect(in: size)
         let deleteZone = deletionZone(in: size)
 
@@ -125,7 +126,8 @@ struct FeedCellView: View {
             .padding(.top, FeedSpec.Badge.inset.top)
             .allowsHitTesting(false)
         }
-        .frame(width: size.width, height: size.height)
+        .frame(maxWidth: .infinity, minHeight: item.height, maxHeight: item.height)
+        .background(SizeReporter(size: $measuredSize))
         .clipShape(RoundedRectangle(cornerRadius: FeedSpec.Cell.cornerRadius))
         .overlay(
             RoundedRectangle(cornerRadius: max(FeedSpec.Cell.cornerRadius - FeedSpec.Cell.innerBorderInset, 0))
@@ -159,6 +161,27 @@ struct FeedCellView: View {
     private func deletionZone(in size: CGSize) -> CGRect {
         let side = FeedSpec.DeletionZone.size
         return CGRect(x: size.width - side, y: size.height - side, width: side, height: side)
+    }
+
+    private var fallbackWidth: CGFloat {
+        let total = UIScreen.main.bounds.width - FeedSpec.Layout.contentInsets.left - FeedSpec.Layout.contentInsets.right
+        return max(total, 0)
+    }
+}
+
+private struct SizeReporter: View {
+    @Binding var size: CGSize
+
+    var body: some View {
+        GeometryReader { proxy in
+            Color.clear
+                .onAppear {
+                    size = proxy.size
+                }
+                .onChange(of: proxy.size) { _, newValue in
+                    size = newValue
+                }
+        }
     }
 }
 
